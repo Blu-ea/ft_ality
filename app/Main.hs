@@ -21,7 +21,7 @@ main = do
     -- _ <- addEventWatch watchKeyboardInput  -- Cannot probably use addEventWatcher because of the requirement of keeping the current states
 
     -- appLoop renderer False defaultGameState
-    ls <- getEventFilter
+    ls <- getEventFilter [KeycodeA, KeycodeS, KeycodeD ,KeycodeW]
 
     process ls
 

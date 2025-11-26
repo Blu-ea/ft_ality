@@ -45,8 +45,8 @@ watchKeyboardInput:: Event -> IO()
 watchKeyboardInput event = do
 
     case eventPayload event of
-        WindowClosedEvent closeEvent -> print "Window is closed :D\n"
-        KeyboardEvent keyboardEvent -> print "Key is event :D\n"
+        WindowClosedEvent _ -> print "Window is closed :D\n"
+        KeyboardEvent _ -> print "Key is event :D\n"
         _ -> return ()
 
     -- let eventIsQPress event =
@@ -95,10 +95,10 @@ test' = unsafeInterleaveIO $ do
         _ -> return events
 
 
-getEventFilter :: IO[Event]
-getEventFilter = unsafeInterleaveIO $ do
+getEventFilter :: [Keycode] -> IO[Event]
+getEventFilter inputKeys = unsafeInterleaveIO $ do
     event <- pollEvent
-    events <- getEventFilter
+    events <- getEventFilter inputKeys
 
     if isNothing event then return events else 
         let e = fromJust event in 
@@ -111,7 +111,7 @@ getEventFilter = unsafeInterleaveIO $ do
             KeyboardEvent ke | t ke
                 -> pure (e : events)
             _ -> pure events
-    where t _ = True -- t 'elem' inputKeys
+    where t ke = keysymKeycode(keyboardEventKeysym ke) `elem` inputKeys
 
 
 
