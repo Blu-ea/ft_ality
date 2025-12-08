@@ -1,4 +1,4 @@
-module MachineStates where
+module Machine.StateMachine where
 
 import Data.List (find)
 type Action = String
@@ -205,10 +205,3 @@ executionLoopTest :: AlityMachine -> [[Action]] -> [String]
 executionLoopTest machine actionsLst =
   let currentState = states machine !! initialStateId machine
   in stateLoop machine currentState actionsLst
-
--- Parsing
-
-type Bindings  = [(String, String)]
-type ComboList = [([[Action]], [(Name, String)])]
-
-

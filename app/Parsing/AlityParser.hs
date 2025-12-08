@@ -4,7 +4,7 @@ import qualified Parsing.AlityLexer as Lex
 
 data ComboAssociation = ComboAssociation { characterName :: String
                                          , comboName :: String
-                                         } deriving (Show, Eq)
+                                         } deriving (Show, Eq, Ord)
 
 data ComboRule = ComboRule { actions :: [[String]]
                            , comboAssociations :: [ComboAssociation]

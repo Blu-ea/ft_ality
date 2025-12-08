@@ -64,17 +64,18 @@ executable ft-ality
     other-modules:    Test,
                       EventListner,
                       Utils,
-                      MachineStates,
+                      Machine.StateMachine,
+                      Machine.StateTree,
                       Parsing.AlityLexer,
-                      Parsing.AlityParser
+                      Parsing.AlityParser,
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.18.3.0 ,
-                      sdl2 >=2.5.3,
                       text,
+                      sdl2
 
     -- Directories containing source files.
     hs-source-dirs:   app

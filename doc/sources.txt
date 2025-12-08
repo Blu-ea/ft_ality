@@ -1,0 +1,3 @@
+Here are the main sources used to learn haskell and code this project
+
+https://www.youtube.com/watch?v=V77J9l8N-P8
