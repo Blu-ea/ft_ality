@@ -13,11 +13,13 @@ data Transition = Transition { actions :: [Action]
 
 type State = (ID, [Transition], [(CharacterName, ComboName)])
 
+type DeltaFunc = AlityMachine -> ID -> [Action] -> Maybe ID
+
 data AlityMachine = AlityMachine { alaphabet :: [[Action]]
                                  , states :: [State]
                                  , initialStateId :: ID
                                  , finalStatesId :: [ID]
-                                 , delta :: State -> [Action] -> ID
+                                 , delta :: DeltaFunc
                                  }
 
 type Set a = [a]
@@ -27,9 +29,23 @@ powerset [] = [[]]
 powerset (x:xs) = [x:ps | ps <- powerset xs] ++ powerset xs
 
 -- deltaFunction iterate over a list of transition and return the nextStateId of the transition with the corresponding actions
-deltaFunction :: State -> [Action] -> ID
-deltaFunction (_, transitions, _) inputActions =
-  maybe 0 nextStateId (find (\ t -> actions t == inputActions) transitions)
+deltaFunction :: DeltaFunc
+deltaFunction machine currentStateId inputActions =
+    case getStateById machine currentStateId >>= \(_, t, _) -> getTransitionByAction t inputActions of
+        Just t -> Just (nextStateId t)
+        Nothing ->
+            let initStateId = initialStateId machine
+            in case getStateById machine initStateId
+                    >>= \(_, t, _) -> getTransitionByAction t inputActions
+                    >>= \newt -> Just (nextStateId newt)
+               of
+                Just newId -> Just newId
+                Nothing -> Just initStateId
+    where
+      getStateById :: AlityMachine -> ID -> Maybe State
+      getStateById curMachine targetId = find (\ (stateID, _, _) -> stateID == targetId) (states curMachine)
+      getTransitionByAction :: [Transition] -> [Action] -> Maybe Transition
+      getTransitionByAction tlst actlst = find (\ t -> actions t == actlst) tlst
 
 exampleMachine :: AlityMachine
 exampleMachine = AlityMachine { alaphabet = [ ["punch"]
@@ -193,13 +209,19 @@ stateLoop :: AlityMachine -> State -> [[Action]] -> [String]
 stateLoop _ _ [] = []
 stateLoop machine currentState (actionsHead:actionsTail) =
       let (currentId, _, combos) = currentState
-          newStateId = delta machine currentState actionsHead
-          associatedActions = actionsHead
-          strTransition = "Current state id = " ++ show currentId
-                          ++ " -> Next state id = " ++ show newStateId
-                          ++ " | Actions associated to the transition : " ++ show associatedActions
-                          ++ " | Found end state in current state for " ++ show combos
-      in strTransition : stateLoop machine (states machine !! newStateId) actionsTail
+          newStateId = delta machine machine currentId actionsHead
+      in case newStateId of
+          Nothing -> ["No transition found from state id " ++ show currentId ++ " with actions " ++ show actionsHead]
+          Just newId ->
+            let nextState = find (\ (stateID, _, _) -> stateID == newId) (states machine)
+                associatedActions = actionsHead
+                strTransition = "Current state id = " ++ show currentId
+                                ++ "\n -> Next state id = " ++ show newId
+                                ++ "\n | Actions : " ++ show associatedActions
+                                ++ "\n | Current end state for " ++ show combos
+            in case nextState of
+                Nothing -> [strTransition ++ " | Next state not found in machine states."]
+                Just ns@(_, _, nextCombo) -> (strTransition ++ " | Next end state for " ++ show nextCombo ++ "\n\n") : stateLoop machine ns actionsTail
 
 executionLoopTest :: AlityMachine -> [[Action]] -> [String]
 executionLoopTest machine actionsLst =
