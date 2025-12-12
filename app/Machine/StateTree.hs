@@ -74,5 +74,3 @@ mergeStateTreeList (current:restStates) states2 =
     case find (sameAct current) states2 of
         Nothing -> current : mergeStateTreeList restStates states2
         Just t -> mergeStateTreeIn current t : mergeStateTreeList restStates (delete t states2)
-
--- Create root (q0) of the state tree, then insert each branch in the root to create the final tree
