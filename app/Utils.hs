@@ -5,7 +5,6 @@ import SDL
 import Data.Char (toLower)
 
 
-
 printList :: (Show a) => [a] -> IO()
 printList (x:xs) = do
     print x
@@ -34,3 +33,8 @@ nameToKeycode _ = KeycodeUnknown
 
 charToKeycode :: Char -> Keycode
 charToKeycode c = Keycode (fromIntegral . fromEnum $ c)
+
+isKeyPress :: KeyboardEventData -> Bool
+isKeyPress ke = keyboardEventKeyMotion ke == Pressed && not (keyboardEventRepeat ke)
+isKeyRelease :: KeyboardEventData -> Bool
+isKeyRelease ke = keyboardEventKeyMotion ke == Released
