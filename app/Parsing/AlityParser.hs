@@ -1,5 +1,7 @@
 module Parsing.AlityParser where
 
+import Data.List
+
 import qualified Parsing.AlityLexer as Lex
 
 data ComboAssociation = ComboAssociation { characterName :: String
@@ -65,7 +67,7 @@ parseActionsList tokens =
 
         (Just actionGroup, nextToks) ->
             let (restActionGroups, finalTokens) = parseActionsList nextToks
-            in (actionGroup : restActionGroups, finalTokens)
+            in (sort actionGroup : restActionGroups, finalTokens)
 
 parseSingleActionGroup :: [Lex.Token] -> (Maybe [String], [Lex.Token])
 parseSingleActionGroup tokens =
