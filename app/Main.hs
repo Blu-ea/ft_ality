@@ -15,6 +15,7 @@ import SDL.Internal.Numbered (FromNumber(..))
 
 import Data.Text(pack)
 import Data.Foldable (find)
+import Data.List (intercalate, sort)
 
 import EventListner ( getEventFilter, reduceEventList )
 
@@ -74,21 +75,26 @@ runProgram filePath = do
 processLoop :: [[Keycode]] -> ([(Keycode, Action)], AlityMachine, State) -> IO ()
 processLoop [] _ = print "Quitting..."
 processLoop (x:xs) (bindings, machine, (currentId, _, _)) = do
-    let lst = keycodesToActions x bindings
-    print $ "current actions : " ++ show lst
-    let newStateId = delta machine machine currentId lst
+    let actList = sort $ keycodesToActions x bindings
+    putChar '\n'
+    printActions [actList]
+    let newStateId = delta machine machine currentId actList
         in case newStateId of
-            Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show lst
+            Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
             Just newId ->
                 let nextState = find (\ (stateID, _, _) -> stateID == newId) (states machine)
                 in case nextState of
-                    Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show lst
+                    Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
                     Just ns@(_, _, nextCombo) -> do
-                        putStrLn $ "Transitioning to state id " ++ show newId ++ " with combos :\n"
-                        mapM_ (\(charName, combo) -> putStrLn $ "- " ++ combo ++ " (" ++ charName ++ ")") nextCombo
+                        mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
                         processLoop xs (bindings, machine, ns)
 
 keycodesToActions :: [Keycode] -> [(Keycode, Action)] -> [String]
 keycodesToActions keycodes bindings =
     [ action | kc <- keycodes, (bindKc, action) <- bindings, kc == bindKc ]
 
+printActions :: [[Action]] -> IO ()
+printActions [] = return ()
+printActions actLists = do
+    let actStrs = map (intercalate ", ") actLists
+    putStrLn $ intercalate " -> " actStrs
