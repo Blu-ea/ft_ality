@@ -1,0 +1,97 @@
+(
+    [ KeyBinding {keyName = "a", actionName = "punch"}
+    , KeyBinding {keyName = "z", actionName = "kick"}
+    , KeyBinding {keyName = "e", actionName = "low kick"}
+    , KeyBinding {keyName = "r", actionName = "jump"}
+    ]
+
+, StateTreeNode 
+{ nodeActions = []
+, nodeCombo = []
+, nextTrees = 
+    [ StateTreeNode 
+    { nodeActions = ["low kick"]
+    , nodeCombo = [ComboAssociation {characterName = "bob", comboName = "bob's low kick"},ComboAssociation {characterName = "bart", comboName = "bart's low kick"}]
+    , nextTrees = 
+            [ StateTreeNode 
+            { nodeActions = ["jump","kick"]
+            , nodeCombo = []
+            , nextTrees = 
+                    [ StateTreeNode 
+                    { nodeActions = ["low kick"]
+                    , nodeCombo = [ComboAssociation {characterName = "bart", comboName = "Well, that's something"}]
+                    , nextTrees = []
+                    }
+                    ]
+            }
+
+            , StateTreeNode 
+            { nodeActions = ["jump"]
+            , nodeCombo = []
+            , nextTrees = 
+                    [ StateTreeNode 
+                    { nodeActions = ["low kick","jump"]
+                    , nodeCombo = [ComboAssociation {characterName = "bart", comboName = "What the hell do you want me to do ?"}]
+                    , nextTrees = []
+                    }
+                    ]
+            }
+
+            , StateTreeNode 
+            { nodeActions = ["punch"]
+            , nodeCombo = []
+            , nextTrees = 
+                    [ StateTreeNode 
+                    { nodeActions = ["jump","punch"]
+                    , nodeCombo = [ComboAssociation {characterName = "ash", comboName = "niagara kick"},ComboAssociation {characterName = "bob", comboName = "knee to teeth"}]
+                    , nextTrees = []
+                    }
+
+                    , StateTreeNode 
+                    { nodeActions = ["low kick","jump"]
+                    , nodeCombo = [ComboAssociation {characterName = "ash", comboName = "reverse niagara kick"}]
+                    , nextTrees = []
+                    }
+                    ]
+            }
+            ]
+    }
+
+    , StateTreeNode 
+    { nodeActions = ["jump"]
+    , nodeCombo = []
+    , nextTrees = 
+            [ StateTreeNode 
+            { nodeActions = ["punch","kick"]
+            , nodeCombo = [ComboAssociation {characterName = "ash", comboName = "flying tornado"}]
+            , nextTrees = []
+            }
+
+            , StateTreeNode 
+            { nodeActions = ["kick"]
+            , nodeCombo = [ComboAssociation {characterName = "bob", comboName = "high kick"},ComboAssociation {characterName = "bart", comboName = "high kick"}]
+            , nextTrees = []
+            }
+
+            , StateTreeNode 
+            { nodeActions = ["punch"]
+            , nodeCombo = [ComboAssociation {characterName = "bob", comboName = "high punch"},ComboAssociation {characterName = "bart", comboName = "high punch"},ComboAssociation {characterName = "ash", comboName = "high punch"}]
+            , nextTrees = []
+            }
+            ]
+    }
+
+    , StateTreeNode
+    { nodeActions = ["kick"]
+    , nodeCombo = [ComboAssociation {characterName = "bob", comboName = "simple punch"},ComboAssociation {characterName = "bart", comboName = "simple punch"},ComboAssociation {characterName = "ash", comboName = "simple punch"}]
+    , nextTrees = []
+    }
+
+    , StateTreeNode 
+    { nodeActions = ["punch"]
+    , nodeCombo = [ComboAssociation {characterName = "bob", comboName = "simple kick"},ComboAssociation {characterName = "bart", comboName = "simple kick"},ComboAssociation {characterName = "ash", comboName = "simple kick"}]
+    , nextTrees = []
+    }
+    ]
+}
+)

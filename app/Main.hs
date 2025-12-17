@@ -40,7 +40,7 @@ main :: IO ()
 main = do
     args <- getArgs
     case checkArgs args of
-        Error -> printUsage
+        Error -> putStrLn "Error on usage\nUsage: ft_ality [combo file]"
         Help -> printUsage
         File file -> runProgram file
 
@@ -68,16 +68,17 @@ runProgram filePath = do
                     print test
 
                     ls <- getEventFilter $ map fromNumber [97 .. 122] -- Get all the letters
-                    processLoop (reduceEventList ls) (bindingsCode, machine, initialState)
+                    processLoop (reduceEventList ls) [](bindingsCode, machine, initialState)
 
                     destroyWindow window
 
-processLoop :: [[Keycode]] -> ([(Keycode, Action)], AlityMachine, State) -> IO ()
-processLoop [] _ = print "Quitting..."
-processLoop (x:xs) (bindings, machine, (currentId, _, _)) = do
+processLoop :: [[Keycode]] -> [[String]] -> ([(Keycode, Action)], AlityMachine, State) -> IO ()
+processLoop [] _ _ = print "Quitting..."
+processLoop (x:xs) actHistory (bindings, machine, (currentId, _, _)) = do
     let actList = sort $ keycodesToActions x bindings
+        newHistory = actHistory ++ [actList]
     putChar '\n'
-    printActions [actList]
+    printActions newHistory
     let newStateId = delta machine machine currentId actList
         in case newStateId of
             Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
@@ -87,7 +88,7 @@ processLoop (x:xs) (bindings, machine, (currentId, _, _)) = do
                     Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
                     Just ns@(_, _, nextCombo) -> do
                         mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
-                        processLoop xs (bindings, machine, ns)
+                        processLoop xs newHistory (bindings, machine, ns)
 
 keycodesToActions :: [Keycode] -> [(Keycode, Action)] -> [String]
 keycodesToActions keycodes bindings =
