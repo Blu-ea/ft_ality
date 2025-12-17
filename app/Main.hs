@@ -76,17 +76,17 @@ processLoop :: [[Keycode]] -> [[String]] -> ([(Keycode, Action)], AlityMachine, 
 processLoop [] _ _ = print "Quitting..."
 processLoop (x:xs) actHistory (bindings, machine, (currentId, _, _)) = do
     let actList = sort $ keycodesToActions x bindings
-        newHistory = actHistory ++ [actList]
-    putChar '\n'
-    printActions newHistory
-    let newStateId = delta machine machine currentId actList
+        (backToInit, newStateId) = delta machine machine currentId actList
         in case newStateId of
-            Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
+            Nothing -> putStrLn $ "No transition found with actions " ++ show actList
             Just newId ->
                 let nextState = find (\ (stateID, _, _) -> stateID == newId) (states machine)
                 in case nextState of
-                    Nothing -> putStrLn $ "No transition found from state id " ++ show currentId ++ " with actions " ++ show actList
+                    Nothing -> putStrLn $ "No transition found with actions " ++ show actList
                     Just ns@(_, _, nextCombo) -> do
+                        let newHistory = if backToInit then [actList] else actHistory ++ [actList]
+                        putChar '\n'
+                        printActions newHistory
                         mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
                         processLoop xs newHistory (bindings, machine, ns)
 

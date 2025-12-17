@@ -22,17 +22,17 @@ parseStr str =
         createTreeFromRules [] = STree.singletonStateTree [] []
         createTreeFromRules lst = foldl (\tree (ComboRule actList assoList) -> STree.insertInTree actList assoList tree) (STree.singletonStateTree [] []) lst
 
-convertTreeToMachine :: STree.StateTree -> (AlityMachine -> ID -> [Action] -> Maybe ID) -> AlityMachine
+convertTreeToMachine :: STree.StateTree -> Machine.DeltaFunc -> Machine.AlityMachine
 convertTreeToMachine tree f =
     let (statesList, alphaList, finalIdsList, _) = treeToMachine tree 0 [] [] []
-    in AlityMachine { alaphabet = alphaList
-                    , states = statesList
-                    , initialStateId = 0
-                    , finalStatesId = finalIdsList
-                    , delta = f
-                    }
+    in Machine.AlityMachine { alaphabet = alphaList
+                            , states = statesList
+                            , initialStateId = 0
+                            , finalStatesId = finalIdsList
+                            , delta = f
+                            }
 
-treeToMachine :: StateTree -> ID -> [State] -> [[Action]] -> [ID] -> ([State], [[Action]], [ID], ID)
+treeToMachine :: STree.StateTree -> ID -> [Machine.State] -> [[Machine.Action]] -> [ID] -> ([Machine.State], [[Machine.Action]], [ID], ID)
 treeToMachine Empty currentId statesList alphaList finalIdsList = (statesList, alphaList, finalIdsList, currentId)
 treeToMachine (StateTreeNode nodeActs nodeComboAssoc subtrees) currentId statesList alphaList finalIdsList =
     let

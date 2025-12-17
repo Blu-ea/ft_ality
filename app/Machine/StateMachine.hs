@@ -13,7 +13,7 @@ data Transition = Transition { actions :: [Action]
 
 type State = (ID, [Transition], [(CharacterName, ComboName)])
 
-type DeltaFunc = AlityMachine -> ID -> [Action] -> Maybe ID
+type DeltaFunc = AlityMachine -> ID -> [Action] -> (Bool, Maybe ID)
 
 data AlityMachine = AlityMachine { alaphabet :: [[Action]]
                                  , states :: [State]
@@ -31,16 +31,16 @@ powerset (x:xs) = [x:ps | ps <- powerset xs] ++ powerset xs
 -- deltaFunction iterate over a list of transition and return the nextStateId of the transition with the corresponding actions
 deltaFunction :: DeltaFunc
 deltaFunction machine currentStateId inputActions =
-    case getStateById machine currentStateId >>= \(_, t, _) -> getTransitionByAction t inputActions of
-        Just t -> Just (nextStateId t)
+    let initStateId = initialStateId machine
+    in case getStateById machine currentStateId >>= \(_, t, _) -> getTransitionByAction t inputActions of
+        Just t -> (initStateId == currentStateId, Just (nextStateId t))
         Nothing ->
-            let initStateId = initialStateId machine
-            in case getStateById machine initStateId
-                    >>= \(_, t, _) -> getTransitionByAction t inputActions
-                    >>= \newt -> Just (nextStateId newt)
-               of
-                Just newId -> Just newId
-                Nothing -> Just initStateId
+            case getStateById machine initStateId
+                 >>= \(_, t, _) -> getTransitionByAction t inputActions
+                 >>= \newt -> Just (nextStateId newt)
+            of
+            Just newId -> (True, Just newId)
+            Nothing -> (True, Just initStateId)
     where
       getStateById :: AlityMachine -> ID -> Maybe State
       getStateById curMachine targetId = find (\ (stateID, _, _) -> stateID == targetId) (states curMachine)
@@ -209,7 +209,7 @@ stateLoop :: AlityMachine -> State -> [[Action]] -> [String]
 stateLoop _ _ [] = []
 stateLoop machine currentState (actionsHead:actionsTail) =
       let (currentId, _, combos) = currentState
-          newStateId = delta machine machine currentId actionsHead
+          (_, newStateId) = delta machine machine currentId actionsHead
       in case newStateId of
           Nothing -> ["No transition found from state id " ++ show currentId ++ " with actions " ++ show actionsHead]
           Just newId ->
