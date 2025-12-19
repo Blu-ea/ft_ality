@@ -8,7 +8,8 @@ keys
 
 combos
 {
-    "kick"                                   > "bob":"simple kick" | "bart":"simple kick" | "ash":"simple kick";
+    "kick"                                   > "bob":"simple kick";
+    "kick"                                   > "bart":"simple kick" | "ash":"simple kick";
     "punch"                                  > "bob":"simple punch" | "bart":"simple punch" | "ash":"simple punch";
     "jump", "punch"                          > "bob":"high punch" | "bart":"high punch" | "ash":"high punch";
     "jump", "kick"                           > "bob":"high kick" | "bart":"high kick";
