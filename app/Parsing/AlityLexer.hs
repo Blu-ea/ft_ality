@@ -1,6 +1,6 @@
 module Parsing.AlityLexer (Token(..), TokenType(..), lexer) where
 
-import Data.Char ( isSpace ) -- TODO remove import and implement isSpace
+import Data.Char ( isSpace )
 import Data.List ( isPrefixOf )
 
 data TokenType = SemiColon
