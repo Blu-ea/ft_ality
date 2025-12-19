@@ -24,11 +24,11 @@ printEventType _ = print "Unknowed event\n"
 -- If nothing is found, it will return `KeycodeUnknown`
 nameToKeycode :: String -> Keycode
 nameToKeycode [c] = charToKeycode $ toLower c
-nameToKeycode "Left" = KeycodeLeft
-nameToKeycode "Right" = KeycodeRight
-nameToKeycode "Up" = KeycodeUp
-nameToKeycode "Down" = KeycodeDown
-nameToKeycode "Space" = KeycodeSpace
+nameToKeycode "left" = KeycodeLeft
+nameToKeycode "right" = KeycodeRight
+nameToKeycode "up" = KeycodeUp
+nameToKeycode "down" = KeycodeDown
+nameToKeycode "space" = KeycodeSpace
 nameToKeycode _ = KeycodeUnknown
 
 charToKeycode :: Char -> Keycode

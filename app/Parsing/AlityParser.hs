@@ -1,8 +1,10 @@
+
 module Parsing.AlityParser where
 
 import Data.List
 
 import qualified Parsing.AlityLexer as Lex
+import Data.Char (toLower)
 
 data ComboAssociation = ComboAssociation { characterName :: String
                                          , comboName :: String
@@ -20,141 +22,198 @@ data KeyBinding = KeyBinding { keyName :: String
                              , actionName :: String
                              } deriving (Show, Eq)
 
+data ParseResult a = Error String
+                   | Success a
+                   deriving (Show, Eq)
+
+parseErrorMsg :: String -> String -> Int -> Int -> String
+parseErrorMsg expected found line col =
+    "Expected " ++ expected ++ " instead of \"" ++ found ++ "\" at line " ++ show line ++ ", column " ++ show col
+
+consumeToken :: [Lex.Token] -> Lex.TokenType -> String -> ParseResult (Lex.Token, [Lex.Token])
+consumeToken (t:ts) expectedToken expectedStr
+    | Lex.tokenType t == expectedToken = Success (t, ts)
+    | otherwise = Error (parseErrorMsg expectedStr (Lex.str t) (Lex.lineNum t) (Lex.colNum t))
+consumeToken [] _ expectedStr = Error ("Expected " ++ expectedStr ++ " but found end of input")
+
 --Keys parsing
 
--- Keys section start with Keys token following by LBrace token, and end with RBrace token
-parseKeysSection :: [Lex.Token] -> ([KeyBinding], [Lex.Token])
-parseKeysSection tokens =
-    case tokens of
-        (Lex.Keys : Lex.LBrace : xs) ->
-            let (keyBindings, restTokens) = parseKeys xs
-            in case restTokens of
-                (Lex.RBrace : ys) -> (keyBindings, ys)
-                _                 -> (keyBindings, restTokens)
+parseKeysSection :: [Lex.Token] -> ParseResult ([KeyBinding], [Lex.Token])
+parseKeysSection [] = Error "Unexpected end of input while parsing keys section."
+parseKeysSection (t : ts) =
+    case consumeToken (t : ts) Lex.Keys "keys keyword" of
+        Error err -> Error err
+        Success (_, afterKeys) ->
+            case consumeToken afterKeys Lex.LBrace "left brace" of
+                Error err -> Error err
+                Success (_, afterLBrace) ->
+                    case parseKeys afterLBrace of
+                        Error err -> Error err
+                        Success (keyBindings, afterKeysSection) ->
+                            case consumeToken afterKeysSection Lex.RBrace "right brace" of
+                                Error err -> Error err
+                                Success (_, finalTokens) ->
+                                    Success (keyBindings, finalTokens)
 
-        _ -> ([], tokens)
+parseKeys :: [Lex.Token] -> ParseResult ([KeyBinding], [Lex.Token])
+parseKeys [] = Error "Unexpected end of input while parsing keys."
+parseKeys (token@(Lex.Token t strTok l c) : ts)
+    | t == Lex.RBrace = Success ([], token : ts)
+    | t == Lex.Text =
+        case parseKeysLine (token : ts) of
+            Error err -> Error err
+            Success (keyBinding, nextToks) ->
+                case parseKeys nextToks of
+                    Error err -> Error err
+                    Success (restKeys, finalTokens) -> Success (keyBinding : restKeys, finalTokens)
+    | otherwise = Error (parseErrorMsg "right brace" strTok l c)
 
-parseKeys :: [Lex.Token] -> ([KeyBinding], [Lex.Token])
-parseKeys [] = ([], [])
-parseKeys tokens =
-    case parseKeysLine tokens of
-        (Nothing, nextToks) -> 
-            ([], nextToks)
+parseKeysLine :: [Lex.Token] -> ParseResult (KeyBinding, [Lex.Token])
+parseKeysLine tokens =
+    case consumeToken tokens Lex.Text "string value" of
+        Error err -> Error err
+        Success (Lex.Token _ key _ _, keyRestTokens) ->
+            case consumeToken keyRestTokens Lex.Equal "equal sign" of
+                Error err -> Error err
+                Success (_, eqRestToken) ->
+                    case consumeToken eqRestToken Lex.Text "string value" of
+                        Error err -> Error err
+                        Success (Lex.Token _ action _ _, actRestToken) ->
+                            case consumeToken actRestToken Lex.SemiColon "semicolon" of
+                                Error err -> Error err
+                                Success (_, finalTokens) ->
+                                    Success (KeyBinding key (map toLower action), finalTokens)
 
-        (Just keyBinding, nextToks) ->
-            let (restKeys, finalTokens) = parseKeys nextToks
-            in (keyBinding : restKeys, finalTokens)
-
-parseKeysLine :: [Lex.Token] -> (Maybe KeyBinding, [Lex.Token])
-parseKeysLine (k:e:a:c:xs) =
-    case (k, e, a, c) of
-        (Lex.Text key, Lex.Equal, Lex.Text action, Lex.SemiColon) ->
-            (Just (KeyBinding  key action), xs)
-        (_, _, _, _) ->
-            (Nothing, k:e:a:c:xs)
-
-parseKeysLine tokens = (Nothing, tokens)
+-- Could use monad here with parse key line by partialy construct the return value with function chained for each token type.
+-- The succession could return when fail with corresponding error message.
 
 -- Combos Parsing
 
--- Actions list is a series of Text tokens, separated by Comma tokens, and can be joined when separated by Plus tokens
-parseActionsList :: [Lex.Token] -> ([[String]], [Lex.Token])
-parseActionsList [] = ([], [])
-parseActionsList tokens =
+parseActionsGroupList :: [Lex.Token] -> ParseResult ([[String]], [Lex.Token])
+parseActionsGroupList [] = Error "Unexpected end of input while parsing combo actions."
+parseActionsGroupList tokens =
     case parseSingleActionGroup tokens of
-        (Nothing, nextToks) ->
-            ([], nextToks)
+        Error err -> Error err
+        Success (actionGroup, nextToks) ->
+            let sortedActionGroup = sort actionGroup
+            in
+            case nextToks of
+                (Lex.Token Lex.Greater _ _ _ : _) -> Success ([sortedActionGroup], nextToks)
+                (Lex.Token Lex.Text _ _ _ : _) ->
+                    case parseActionsGroupList nextToks of
+                        Error err -> Error err
+                        Success (restActionGroups, finalTokens) ->
+                            Success (sortedActionGroup : restActionGroups, finalTokens)
+                (Lex.Token _ t l c : _) -> Error (parseErrorMsg "plus or greater" t l c)
+                [] -> Error "Unexpected end of input while parsing combo actions."
 
-        (Just actionGroup, nextToks) ->
-            let (restActionGroups, finalTokens) = parseActionsList nextToks
-            in (sort actionGroup : restActionGroups, finalTokens)
-
-parseSingleActionGroup :: [Lex.Token] -> (Maybe [String], [Lex.Token])
+parseSingleActionGroup :: [Lex.Token] -> ParseResult ([String], [Lex.Token])
 parseSingleActionGroup tokens =
     case parseAction tokens of
-        (Nothing, nextTokens) -> (Nothing, nextTokens)
+        Error err -> Error err
+        Success (action, afterAction) ->
+            case afterAction of
+                (Lex.Token Lex.Greater _ _ _ : _) -> Success ([action], afterAction)
+                (Lex.Token Lex.Comma _ _ _ : restTokens) -> Success ([action], restTokens)
+                (Lex.Token Lex.Plus _ _ _ : restTokens) ->
+                    case parseSingleActionGroup restTokens of
+                        Error err -> Error err
+                        Success (actionNames, finalToks) -> Success (action : actionNames, finalToks)
 
-        (Just action, nextTokens) ->
-            case nextTokens of
-                (Lex.Plus : restTokens) ->
-                    let nextAction = parseSingleActionGroup restTokens
-                    in case nextAction of
-                        (Nothing, finalToks) -> (Just [action], finalToks)
-                        (Just actionNames, finalToks) -> (Just (action : actionNames), finalToks)
+                (Lex.Token _ t l c : _) -> Error (parseErrorMsg "comma, plus or greater" t l c)
+                [] -> Error "Unexpected end of input while parsing combo actions."
 
-                (Lex.Comma : restTokens) -> (Just [action], restTokens)
-                _                        -> (Just [action], nextTokens)
+parseAction :: [Lex.Token] -> ParseResult (String, [Lex.Token])
+parseAction [] = Error "Unexpected end of input while parsing combo action."
+parseAction tokens =
+    case consumeToken tokens Lex.Text "input action name" of
+        Error err -> Error err
+        Success (Lex.Token _ action _ _, afterAction) -> Success (action, afterAction)
 
-parseAction :: [Lex.Token] -> (Maybe String, [Lex.Token])
-parseAction (Lex.Text action : xs) = (Just action, xs)
-parseAction tokens                     = (Nothing, tokens)
+parseComboAssociation :: [Lex.Token] -> ParseResult (ComboAssociation, [Lex.Token])
+parseComboAssociation [] = Error "Unexpected end of input while parsing combos."
+parseComboAssociation tokens =
+    case consumeToken tokens Lex.Text "character name" of
+        Error err -> Error err
+        Success (Lex.Token _ name _ _, afterName) ->
+            case consumeToken afterName Lex.Colon "colon" of
+                Error err -> Error err
+                Success (_, afterColon) ->
+                    case consumeToken afterColon Lex.Text "combo name" of
+                        Error err -> Error err
+                        Success (Lex.Token _ combo _ _, finalTokens) ->
+                            Success (ComboAssociation name combo, finalTokens)
 
--- A combo association is a Text token followed by Colon token and another Text token
-parseComboAssociation :: [Lex.Token] -> (Maybe ComboAssociation, [Lex.Token])
-parseComboAssociation [] = (Nothing, [])
-parseComboAssociation (Lex.Text name : Lex.Colon : Lex.Text combo : xs) =
-    (Just (ComboAssociation name combo), xs)
-
-parseComboAssociation tokens = (Nothing, tokens)
-
--- Combo association list is a series of combo associations separated by Pipe tokens
-parseComboAssociationList :: [Lex.Token] -> ([ComboAssociation], [Lex.Token])
-parseComboAssociationList [] = ([], [])
+parseComboAssociationList :: [Lex.Token] -> ParseResult([ComboAssociation], [Lex.Token])
+parseComboAssociationList [] = Error "Unexpected end of input while parsing combos."
 parseComboAssociationList tokens =
     case parseComboAssociation tokens of
-        (Nothing, nextTokens) -> ([], nextTokens)
+        Error err -> Error err
+        Success (comboAssoc, token@(Lex.Token t strTok l c) : nextTokens) ->
+            case t of
+                Lex.SemiColon ->
+                    Success ([comboAssoc], token : nextTokens)
+                Lex.Pipe ->
+                    case parseComboAssociationList nextTokens of
+                        Error err -> Error err
+                        Success (restCombos, finalTokens) ->
+                            Success (comboAssoc : restCombos, finalTokens)
+                _ -> Error (parseErrorMsg "pipe or semicolon" strTok l c)
+        Success (_, []) -> Error "Unexpected end of input while parsing combos."
 
-        (Just comboAssoc, nextTokens) ->
-            case nextTokens of
-                (Lex.Pipe : restTokens) ->
-                    let (restCombos, finalTokens) = parseComboAssociationList restTokens
-                    in (comboAssoc : restCombos, finalTokens)
-
-                _ -> ([comboAssoc], nextTokens)
-
--- A combo rule consists of an actions ad a combo association list separated by a Greater token, and end with a SemiColon token
-parseComboRule :: [Lex.Token] -> (Maybe ComboRule, [Lex.Token])
+parseComboRule :: [Lex.Token] -> ParseResult (ComboRule, [Lex.Token])
 parseComboRule tokens =
-    case parseActionsList tokens of
-        ([], nextTokens) -> (Nothing, nextTokens)
-
-        (actionGroups, nextTokens) ->
-            case nextTokens of
-                (Lex.Greater : restTokens) ->
-                    let (comboAssocs, finalTokens) = parseComboAssociationList restTokens
-                    in case finalTokens of
-                        (Lex.SemiColon : afterSemi) ->
-                            (Just (ComboRule actionGroups comboAssocs), afterSemi)
-
-                        _ -> (Nothing, finalTokens) -- TODO better error handling
-
-                _ -> (Nothing, nextTokens) -- TODO better error handling
+    case parseActionsGroupList tokens of
+        Error err -> Error err
+        Success(actionGroups, nextTokens) ->
+            case consumeToken nextTokens Lex.Greater "greater than" of
+                Error err -> Error err
+                Success (_, restTokens) ->
+                    case parseComboAssociationList restTokens of
+                        Error err -> Error err
+                        Success (comboAssocs, finalTokens) ->
+                            case consumeToken finalTokens Lex.SemiColon "semicolon" of
+                                Error err -> Error err
+                                Success (_, afterSemi) ->
+                                    Success (ComboRule actionGroups comboAssocs, afterSemi)
 
 -- Recursively parse combo rules until RBrace token is encountered
-parseComboRules :: [Lex.Token] -> ([ComboRule], [Lex.Token])
-parseComboRules [] = ([], [])
+parseComboRules :: [Lex.Token] -> ParseResult ([ComboRule], [Lex.Token])
+parseComboRules [] = Error "Unexpected end of input while parsing combo rules."
 parseComboRules tokens =
     case parseComboRule tokens of
-        (Nothing, nextTokens) -> ([], nextTokens)
-        (Just comboRule, nextTokens) ->
-            let (restComboRules, finalTokens) = parseComboRules nextTokens
-            in (comboRule : restComboRules, finalTokens)
+        Error err -> Error err
+        Success (comboRule, nextTokens) ->
+            case nextTokens of
+                (Lex.Token Lex.RBrace _ _ _ : _) -> Success ([comboRule], nextTokens)
+                _ -> case parseComboRules nextTokens of
+                        Error err -> Error err
+                        Success (restComboRules, finalTokens) ->
+                            Success (comboRule : restComboRules, finalTokens)
 
--- A combo secttion starts with Combos token followed by LBrace token, and ends with RBrace token, and contains a series of combo rules
-parseCombosSection :: [Lex.Token] -> ([ComboRule], [Lex.Token])
-parseCombosSection tokens =
-    case tokens of
-        (Lex.Combos : Lex.LBrace : xs) ->
-            let (comboRules, restTokens) = parseComboRules xs
-            in case restTokens of
-                (Lex.RBrace : ys) -> (comboRules, ys)
-                _                 -> (comboRules, restTokens) -- TODO better error handling
+parseCombosSection :: [Lex.Token] -> ParseResult ([ComboRule], [Lex.Token])
+parseCombosSection [] = Error "Unexpected end of input while parsing combos section."
+parseCombosSection (t : ts) =
+    case consumeToken (t : ts) Lex.Combos "combos keyword" of
+        Error err -> Error err
+        Success (_, afterCombos) ->
+            case consumeToken afterCombos Lex.LBrace "left brace" of
+                Error err -> Error err
+                Success (_, afterLBrace) ->
+                    case parseComboRules afterLBrace of
+                        Error err -> Error err
+                        Success (comboRules, afterRules) ->
+                            case consumeToken afterRules Lex.RBrace "right brace" of
+                                Error err -> Error err
+                                Success (_, finalTokens) ->
+                                    Success (comboRules, finalTokens)
 
-        _ -> ([], tokens)
-
-
-parseInputConfig :: [Lex.Token] -> (InputConfig, [Lex.Token])
+parseInputConfig :: [Lex.Token] -> ParseResult (InputConfig, [Lex.Token])
 parseInputConfig tokens =
-    let (keyBindings, tokensAfterKeys) = parseKeysSection tokens
-        (comboRules, restTokens)       = parseCombosSection tokensAfterKeys
-    in (InputConfig keyBindings comboRules, restTokens)
+    case parseKeysSection tokens of
+        Error err -> Error err
+        Success (keyBindings, tokensAfterKeys) ->
+            case parseCombosSection tokensAfterKeys of
+                Error err -> Error err
+                Success (comboRules, restTokens) ->
+                    Success (InputConfig keyBindings comboRules, restTokens)

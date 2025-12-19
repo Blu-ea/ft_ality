@@ -5,22 +5,30 @@ import Parsing.AlityParser as Parse
 import Machine.StateTree as STree
 import Machine.StateMachine as Machine
 
-stringToMachine :: String -> Machine.DeltaFunc -> ([Parse.KeyBinding], Machine.AlityMachine)
-stringToMachine str f =
-    let (bindings, tree) = parseStr str
-        machine = convertTreeToMachine tree f
-    in (bindings, machine)
+stringToMachine :: String -> Machine.DeltaFunc -> ParseResult ([Parse.KeyBinding], Machine.AlityMachine)
+stringToMachine s f =
+    case parseStr s of
+        Error err -> Error err
+        Success (bindings, tree) ->
+            let machine = convertTreeToMachine tree f
+            in Success (bindings, machine)
 
-parseStr :: String -> ([Parse.KeyBinding], STree.StateTree)
-parseStr str =
-    let tokens = Lex.lexer str
-        (keyBindings, restTokens) = Parse.parseKeysSection tokens
-        (comboRules, _) = Parse.parseCombosSection restTokens
-        tree = createTreeFromRules comboRules
-    in (keyBindings, tree)
-    where
-        createTreeFromRules [] = STree.singletonStateTree [] []
-        createTreeFromRules lst = foldl (\tree (ComboRule actList assoList) -> STree.insertInTree actList assoList tree) (STree.singletonStateTree [] []) lst
+parseStr :: String -> ParseResult ([Parse.KeyBinding], STree.StateTree)
+parseStr s =
+    let tokens = Lex.lexer s 1 1
+    in case Parse.parseKeysSection tokens of
+        Error err -> Error err
+        Success (keyBindings, restTokens) ->
+            case Parse.parseCombosSection restTokens of
+                Error err -> Error err
+                Success (comboRules, _) ->
+                    let tree = createTreeFromRules comboRules
+                    in Success (keyBindings, tree)
+            where
+                createTreeFromRules [] = STree.singletonStateTree [] []
+                createTreeFromRules lst = foldl (\tree (ComboRule actList assoList) -> STree.insertInTree actList assoList tree) 
+                                                (STree.singletonStateTree [] [])
+                                                lst
 
 convertTreeToMachine :: STree.StateTree -> Machine.DeltaFunc -> Machine.AlityMachine
 convertTreeToMachine tree f =
@@ -33,17 +41,17 @@ convertTreeToMachine tree f =
                             }
 
 treeToMachine :: STree.StateTree -> ID -> [Machine.State] -> [[Machine.Action]] -> [ID] -> ([Machine.State], [[Machine.Action]], [ID], ID)
-treeToMachine Empty currentId statesList alphaList finalIdsList = (statesList, alphaList, finalIdsList, currentId)
-treeToMachine (StateTreeNode nodeActs nodeComboAssoc subtrees) currentId statesList alphaList finalIdsList =
+treeToMachine Empty currentId statesList actList finalIdsList = (statesList, actList, finalIdsList, currentId)
+treeToMachine (StateTreeNode nodeActs nodeComboAssoc subtrees) currentId statesList actList finalIdsList =
     let
-        alpha1 = if null nodeActs then alphaList else addToAlphabet nodeActs alphaList
+        acts1 = if null nodeActs then actList else addToAlphabet nodeActs actList
         isFinal = not (null nodeComboAssoc)
         finalIds1 = if isFinal then currentId : finalIdsList else finalIdsList
         comboTuples = map (\ca -> (characterName ca, comboName ca)) nodeComboAssoc
-        (states1, alpha2, finalIds2, nextId, trans) =
-            processSubtrees subtrees (currentId + 1) statesList alpha1 finalIds1 []
+        (stateLst, acts2, finalIds2, nextId, trans) =
+            processSubtrees subtrees (currentId + 1) statesList acts1 finalIds1 []
         currentState = (currentId, trans, comboTuples)
-    in (currentState : states1, alpha2, finalIds2, nextId)
+    in (currentState : stateLst, acts2, finalIds2, nextId)
     where
     processSubtrees :: [StateTree] -> ID -> [State] -> [[Action]] -> [ID] -> [Transition] ->
                        ([State], [[Action]], [ID], ID, [Transition])

@@ -10,7 +10,6 @@ import SDL
       defaultWindow,
       destroyWindow,
       InitFlag(InitJoystick, InitEvents, InitGameController) )
-import SDL.Input.GameController ( availableControllers )
 import SDL.Internal.Numbered (FromNumber(..))
 
 import Data.Text(pack)
@@ -21,7 +20,7 @@ import EventListner ( getEventFilter, reduceEventList )
 
 import Parsing.FileMachine as FM
 import Machine.StateMachine (AlityMachine(..), State, Action, deltaFunction, initialStateId)
-import Parsing.AlityParser as Parser
+import qualified Parsing.AlityParser as Parser
 import Utils
 
 data ArgType = Error | Help | File String deriving (Show, Eq)
@@ -52,43 +51,44 @@ runProgram filePath = do
         else do
 
             fileStr <- readFile filePath
-            let (bindings, machine) = FM.stringToMachine fileStr deltaFunction -- TODO error handling
-                bindingsCode = map (\(Parser.KeyBinding name action) -> (nameToKeycode name, action)) bindings
-                initialMachineState = find (\ (stateID, _, _) -> stateID == initialStateId machine) (states machine)
+            case FM.stringToMachine fileStr deltaFunction of
+                Parser.Error err -> putStrLn $ "Error parsing inputs file: " ++ err
+                Parser.Success (bindings, machine) -> do
+                    let bindingsCode = map (\(Parser.KeyBinding name action) -> (nameToKeycode name, action)) bindings
+                        initialMachineState = find (\ (stateID, _, _) -> stateID == initialStateId machine) (states machine)
+                    case initialMachineState of
+                        Nothing -> putStrLn "Error: Initial state not found in machine states."
+                        Just initialState -> do
 
-            case initialMachineState of
-                Nothing -> putStrLn "Error: Initial state not found in machine states."
-                Just initialState -> do
+                            initialize [InitEvents, InitGameController, InitJoystick]
+                            window <- createWindow  (pack "ft_ality | Key1-detector") defaultWindow
 
-                    initialize [InitEvents, InitGameController, InitJoystick]
-                    window <- createWindow  (pack "ft_ality | Key1-detector") defaultWindow
-                    -- renderer <- createRenderer window (-1) defaultRenderer
+                            ls <- getEventFilter $ map fromNumber [97 .. 122] -- Get all the letters
+                            processLoop (reduceEventList ls) [](bindingsCode, machine, initialState)
 
-                    test <- availableControllers
-                    print test
-
-                    ls <- getEventFilter $ map fromNumber [97 .. 122] -- Get all the letters
-                    processLoop (reduceEventList ls) [](bindingsCode, machine, initialState)
-
-                    destroyWindow window
+                            destroyWindow window
 
 processLoop :: [[Keycode]] -> [[String]] -> ([(Keycode, Action)], AlityMachine, State) -> IO ()
 processLoop [] _ _ = print "Quitting..."
-processLoop (x:xs) actHistory (bindings, machine, (currentId, _, _)) = do
-    let actList = sort $ keycodesToActions x bindings
-        (backToInit, newStateId) = delta machine machine currentId actList
-        in case newStateId of
-            Nothing -> putStrLn $ "No transition found with actions " ++ show actList
-            Just newId ->
-                let nextState = find (\ (stateID, _, _) -> stateID == newId) (states machine)
-                in case nextState of
-                    Nothing -> putStrLn $ "No transition found with actions " ++ show actList
-                    Just ns@(_, _, nextCombo) -> do
-                        let newHistory = if backToInit then [actList] else actHistory ++ [actList]
-                        putChar '\n'
-                        printActions newHistory
-                        mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
-                        processLoop xs newHistory (bindings, machine, ns)
+processLoop ([]:xs) actHistory tuple = processLoop xs actHistory tuple
+processLoop (x:xs) actHistory tuple@(bindings, machine, (currentId, _, _)) = do
+    let acts = sort $ keycodesToActions x bindings
+    case acts of
+        [] -> processLoop xs actHistory tuple
+        actList ->
+            let (backToInit, newStateId) = delta machine machine currentId actList
+            in case newStateId of
+                Nothing -> putStrLn $ "No transition found with actions " ++ show actList
+                Just newId ->
+                    let nextState = find (\ (stateID, _, _) -> stateID == newId) (states machine)
+                    in case nextState of
+                        Nothing -> putStrLn $ "No transition found with actions " ++ show actList
+                        Just ns@(_, _, nextCombo) -> do
+                            let newHistory = if backToInit then [actList] else actHistory ++ [actList]
+                            putChar '\n'
+                            printActions newHistory
+                            mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
+                            processLoop xs newHistory (bindings, machine, ns)
 
 keycodesToActions :: [Keycode] -> [(Keycode, Action)] -> [String]
 keycodesToActions keycodes bindings =
