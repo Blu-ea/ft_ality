@@ -3,7 +3,7 @@ module Main where
 import System.Environment
 import System.Directory (doesFileExist)
 
-import SDL
+import qualified SDL
     ( Keycode,
       initialize,
       createWindow,
@@ -60,15 +60,15 @@ runProgram filePath = do
                         Nothing -> putStrLn "Error: Initial state not found in machine states."
                         Just initialState -> do
 
-                            initialize [InitEvents, InitGameController, InitJoystick]
-                            window <- createWindow  (pack "ft_ality | Key1-detector") defaultWindow
+                            SDL.initialize [SDL.InitEvents, SDL.InitGameController, SDL.InitJoystick]
+                            window <- SDL.createWindow  (pack "ft_ality | Key1-detector") SDL.defaultWindow
 
                             ls <- getEventFilter $ map fromNumber [97 .. 122] -- Get all the letters
                             processLoop (reduceEventList ls) [](bindingsCode, machine, initialState)
 
-                            destroyWindow window
+                            SDL.destroyWindow window
 
-processLoop :: [[Keycode]] -> [[String]] -> ([(Keycode, Action)], AlityMachine, State) -> IO ()
+processLoop :: [[SDL.Keycode]] -> [[String]] -> ([(SDL.Keycode, Action)], AlityMachine, State) -> IO ()
 processLoop [] _ _ = print "Quitting..."
 processLoop ([]:xs) actHistory tuple = processLoop xs actHistory tuple
 processLoop (x:xs) actHistory tuple@(bindings, machine, (currentId, _, _)) = do
@@ -90,7 +90,7 @@ processLoop (x:xs) actHistory tuple@(bindings, machine, (currentId, _, _)) = do
                             mapM_ (\(charName, combo) -> putStrLn $ combo ++ " (" ++ charName ++ ")" ++ " !!") nextCombo
                             processLoop xs newHistory (bindings, machine, ns)
 
-keycodesToActions :: [Keycode] -> [(Keycode, Action)] -> [String]
+keycodesToActions :: [SDL.Keycode] -> [(SDL.Keycode, Action)] -> [String]
 keycodesToActions keycodes bindings =
     [ action | kc <- keycodes, (bindKc, action) <- bindings, kc == bindKc ]
 
