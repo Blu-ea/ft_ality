@@ -7,7 +7,9 @@ CABAL := cabal
 all: build
 
 build:
+	@echo "Building ft_ality\n======="
 	$(CABAL) build
+	@echo "=======\nBuild done !\n"
 
 run: build
 	$(CABAL) run $(EXE) -- $(ARGS)
@@ -24,4 +26,4 @@ help:
 	@echo "  clean    Clean build artifacts (also removes dist-newstyle)"
 	@echo "  help     Show this help"
 
-
+re: clean build

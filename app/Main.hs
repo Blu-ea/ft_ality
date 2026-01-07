@@ -10,16 +10,14 @@ import qualified SDL
       defaultWindow,
       destroyWindow,
       InitFlag(InitJoystick, InitEvents, InitGameController) )
-import SDL.Internal.Numbered (FromNumber(..))
 
-import Data.Text(pack)
-import Data.Foldable (find)
+import Data.Text (pack) -- Needed to create the window title
 import Data.List (intercalate, sort)
 
 import EventListner ( getEventFilter, reduceEventList )
 
 import Parsing.FileMachine as FM
-import Machine.StateMachine (AlityMachine(..), State, Action, deltaFunction, initialStateId, getInitState, getStateById)
+import Machine.StateMachine (AlityMachine(..), State, Action, deltaFunction, getInitState, getStateById)
 import qualified Parsing.AlityParser as Parser
 import Utils
 import System.Directory.Internal.Prelude (when)

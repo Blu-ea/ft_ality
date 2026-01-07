@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+
 module Machine.StateMachine where
 
 import Data.List (find)
@@ -45,5 +47,5 @@ getInitState machine =
         Just state -> state
 
 getStateById :: AlityMachine -> ID -> Maybe State
-getStateById machine id =
-    find (\ (stateID, _, _) -> stateID == id) (states machine)
+getStateById machine searchId =
+    find (\ (stateID, _, _) -> stateID == searchId) (states machine)
