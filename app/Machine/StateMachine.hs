@@ -36,7 +36,14 @@ deltaFunction machine currentStateId inputActions =
             Just newId -> (True, Just newId)
             Nothing -> (True, Just initStateId)
     where
-      getStateById :: AlityMachine -> ID -> Maybe State
-      getStateById curMachine targetId = find (\ (stateID, _, _) -> stateID == targetId) (states curMachine)
       getTransitionByAction :: [Transition] -> [Action] -> Maybe Transition
       getTransitionByAction tlst actlst = find (\ t -> actions t == actlst) tlst
+
+getInitState :: AlityMachine -> State
+getInitState machine =
+    case find (\ (stateID, _, _) -> stateID == initialStateId machine) (states machine) of 
+        Just state -> state
+
+getStateById :: AlityMachine -> ID -> Maybe State
+getStateById machine id =
+    find (\ (stateID, _, _) -> stateID == id) (states machine)
