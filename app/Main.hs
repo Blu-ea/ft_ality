@@ -51,8 +51,8 @@ runProgram filePath = do
 
             fileStr <- readFile filePath
             case FM.stringToMachine fileStr deltaFunction of
-                Parser.Error err -> putStrLn $ "Error parsing inputs file: " ++ err
-                Parser.Success (bindings, machine) ->
+                Left err -> putStrLn $ "Error parsing inputs file: " ++ err
+                Right (bindings, machine) ->
                     let bindingsCode = map (\(Parser.KeyBinding name action) -> (nameToKeycode name, action)) bindings in do
 
                         SDL.initialize [SDL.InitEvents, SDL.InitGameController, SDL.InitJoystick]

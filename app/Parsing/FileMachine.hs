@@ -6,29 +6,22 @@ import Machine.StateTree as STree
 import Machine.StateMachine as Machine
 
 stringToMachine :: String -> Machine.DeltaFunc -> ParseResult ([Parse.KeyBinding], Machine.AlityMachine)
-stringToMachine s f =
-    case parseStr s of
-        Error err -> Error err
-        Success (bindings, tree) ->
-            let machine = convertTreeToMachine tree f
-            in Success (bindings, machine)
+stringToMachine s f = do
+    (bindings, tree) <- parseStr s
+    let machine = convertTreeToMachine tree f
+        in return (bindings, machine)
 
 parseStr :: String -> ParseResult ([Parse.KeyBinding], STree.StateTree)
-parseStr s =
-    let tokens = Lex.lexer s 1 1
-    in case Parse.parseKeysSection tokens of
-        Error err -> Error err
-        Success (keyBindings, restTokens) ->
-            case Parse.parseCombosSection restTokens of
-                Error err -> Error err
-                Success (comboRules, _) ->
-                    let tree = createTreeFromRules comboRules
-                    in Success (keyBindings, tree)
-            where
-                createTreeFromRules [] = STree.singletonStateTree [] []
-                createTreeFromRules lst = foldl (\tree (ComboRule actList assoList) -> STree.insertInTree actList assoList tree) 
-                                                (STree.singletonStateTree [] [])
-                                                lst
+parseStr s = do
+    (keyBindings, restTokens) <- Parse.parseKeysSection $ Lex.lexer s 1 1
+    (comboRules, _) <- Parse.parseCombosSection restTokens
+    return (keyBindings, createTreeFromRules comboRules)
+    
+    where
+        createTreeFromRules [] = STree.singletonStateTree [] []
+        createTreeFromRules lst = foldl (\tree (ComboRule actList assoList) -> STree.insertInTree actList assoList tree) 
+                                        (STree.singletonStateTree [] [])
+                                        lst
 
 convertTreeToMachine :: STree.StateTree -> Machine.DeltaFunc -> Machine.AlityMachine
 convertTreeToMachine tree f =
